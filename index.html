@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#030812"/><title>NEX — Núcleo Neural</title>
+<style>
+:root{color-scheme:dark;--ink:#030812;--blue:#2ba6ff;--gold:#dfac72;--glow:#4fd5ff;--font:system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}html,body{margin:0;height:100%;width:100%;background:#01040b;overflow:hidden;font-family:var(--font);color:#e5eafa}
+#stage{position:fixed;inset:0;overflow:hidden;isolation:isolate;background:radial-gradient(ellipse 80% 66% at 50% 50%,#08264b 0%,#04162e 39%,#01050f 75%,#010205 100%)}
+#stage::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:4;background:radial-gradient(ellipse at center,transparent 30%,rgba(0,0,0,.39) 84%,rgba(0,0,0,.68) 100%)}
+#stage::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:4;opacity:.24;background:repeating-linear-gradient(to bottom,transparent 0,transparent 5px,rgba(41,137,238,.05) 6px);mix-blend-mode:screen}
+#render{position:absolute;inset:0;z-index:2;touch-action:none;cursor:grab}#render:active{cursor:grabbing}canvas{display:block}
+#fallback{position:absolute;inset:0;z-index:1;display:flex;justify-content:center;align-items:center;opacity:1;transition:opacity .8s}
+#fallback img{object-fit:contain;display:block;width:min(88vw,490px);height:min(78vh,720px);opacity:.88;filter:drop-shadow(0 0 35px #006bba88)}
+#fallback.hidden{opacity:0;pointer-events:none}
+#frame{position:fixed;z-index:5;pointer-events:none;inset:0;border:1px solid rgba(69,155,236,.10)}
+#frame:before,#frame:after{content:"";position:absolute;left:50%;width:min(68vw,600px);height:1px;transform:translateX(-50%);background:linear-gradient(90deg,transparent,#bd8d5f88,transparent)}#frame:before{top:86px}#frame:after{bottom:72px}
+#brand{position:fixed;z-index:6;top:max(24px,env(safe-area-inset-top));width:100%;text-align:center;pointer-events:none;text-shadow:0 0 26px #9fbbef44}
+#brand h1{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:clamp(32px,4.8vw,55px);font-weight:400;letter-spacing:.48em;text-indent:.48em;color:#f0d4ba;line-height:1.05}#brand .sub{display:block;margin-top:7px;font-size:clamp(9px,.9vw,11px);letter-spacing:.27em;color:#bdb4bb}
+#info{position:fixed;z-index:7;left:50%;bottom:max(34px,env(safe-area-inset-bottom) + 22px);transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;text-align:center;min-width:240px}
+#state{font-size:11px;letter-spacing:.2em;color:#a8cdee;text-shadow:0 0 18px #007acc}
+#hint{color:#b5abaf;font-size:10px;letter-spacing:.05em;opacity:.75}
+#pencil{position:fixed;z-index:8;right:max(18px,env(safe-area-inset-right) + 12px);bottom:max(20px,env(safe-area-inset-bottom) + 14px);width:38px;height:38px;border-radius:50%;border:1px solid #7696b65f;background:#050d1a88;backdrop-filter:blur(10px);color:#cddffb;display:grid;place-items:center;cursor:pointer;box-shadow:0 0 19px #1c7eca22}
+#pencil:hover,#pencil:focus-visible{outline:1px solid #8dceff;background:#17345a}
+#pencil svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round}
+#composer{position:fixed;z-index:10;bottom:max(70px,env(safe-area-inset-bottom) + 65px);left:50%;transform:translate(-50%,22px);width:min(92vw,560px);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;background:#050d1bec;border:1px solid #7f9eb24d;border-radius:17px;padding:13px;box-shadow:0 26px 80px #000c;backdrop-filter:blur(22px)}
+#composer.open{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+#composer label{display:block;letter-spacing:.19em;font-size:10px;color:#cfb595;margin-bottom:9px}
+#entry{background:#06162a;border:1px solid #456b885e;color:#f1f6ff;border-radius:10px;width:100%;min-height:76px;max-height:180px;resize:vertical;padding:11px;font:14px/1.45 var(--font);outline:none}
+#entry:focus{border-color:#53baff}
+#comp-actions{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:9px}
+#comp-actions button{border:1px solid #50668077;background:#11253d;color:#e4edfc;padding:8px 12px;border-radius:8px;font-size:12px;cursor:pointer}
+#comp-actions button:last-child{border-color:#bb9f6b99;color:#efd5aa}
+#reply{display:none;margin-top:9px;font-size:12px;line-height:1.5;color:#bccee3}#reply.show{display:block}
+#notice{position:fixed;z-index:9;top:100px;left:50%;transform:translateX(-50%);width:min(87vw,480px);text-align:center;font-size:12px;line-height:1.5;color:#bdd1e8;background:#030c17e9;border:1px solid #4876974f;padding:10px 15px;border-radius:12px;display:none}#notice.show{display:block}
+#loader{position:fixed;z-index:3;left:50%;top:calc(50% + 180px);transform:translateX(-50%);color:#a5c8f1;font-size:11px;letter-spacing:.11em;text-shadow:0 0 14px #399af5;pointer-events:none}
+#reduced{position:absolute;top:-999px}
+@media(max-width:650px){#brand h1{font-size:34px;letter-spacing:.38em;text-indent:.38em}#brand .sub{font-size:8px;letter-spacing:.11em}#frame:before{top:90px}#frame:after{bottom:78px}#loader{top:73%}#hint{font-size:9px}#state{font-size:10px}#notice{top:90px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div id="stage"><div id="fallback"><img alt="Referência do cérebro neural da NEX" src="./assets/referencia-frontal.webp"/></div><div id="render" role="application" aria-label="Cérebro anatômico tridimensional da NEX, arraste para girar, pinça para aproximar" tabindex="0"></div><div id="loader">CARREGANDO MODELO ANATÔMICO 3D...</div></div>
+<div id="frame"></div>
+<header id="brand"><h1>NEX</h1><span class="sub">UMA INTELIGÊNCIA · INFINITAS CONEXÕES</span></header>
+<div id="info"><span id="state">NÚCLEO NEURAL</span><span id="hint">Arraste para girar · Pinça para explorar · Toque para falar</span></div>
+<button id="pencil" title="Escrever para a NEX" aria-label="Abrir campo de escrita"><svg viewBox="0 0 24 24"><path d="M3 21l4.5-1L20 7.5 16.5 4 4 16.5 3 21zM14.7 5.8l3.5 3.5"/></svg></button>
+<div id="composer" role="dialog" aria-label="Escrever para a NEX" aria-modal="false"><label for="entry">CONVERSAR COM NEX</label><textarea id="entry" placeholder="Escreva aqui, se preferir usar o teclado..."></textarea><div id="comp-actions"><button id="close">Fechar</button><button id="send">Enviar</button></div><div id="reply" aria-live="polite"></div></div>
+<div id="notice" role="status" aria-live="polite"></div>
+<script>
+(function(){
+const $=id=>document.getElementById(id);let notifyTimer;
+window.NEX_UI={
+ toast(message,permanent=false){$('notice').textContent=message;$('notice').classList.add('show');clearTimeout(notifyTimer);if(!permanent)notifyTimer=setTimeout(()=>$('notice').classList.remove('show'),4700)},
+ state(s,hint){$('state').textContent=s;if(hint)$('hint').textContent=hint;},
+ ready(){ $('fallback').classList.add('hidden');$('loader').style.display='none'},
+ fail(msg){$('loader').textContent='MODELO 3D NÃO CARREGADO';this.toast(msg,true)}
+};
+const box=$('composer'),pencil=$('pencil');pencil.onclick=()=>{box.classList.toggle('open');if(box.classList.contains('open'))$('entry').focus()};$('close').onclick=()=>box.classList.remove('open');
+function respond(txt){$('reply').textContent=txt;$('reply').classList.add('show')}
+function send(){const q=$('entry').value.trim();if(!q)return;const lo=q.toLowerCase();if(/memória ancestral|modo ancestral|arquivo antigo/.test(lo)){window.NEX_VIEW?.setAncient?.(true);respond('Modo Memória Ancestral ativado.')}else if(/modo normal|núcleo neural/.test(lo)){window.NEX_VIEW?.setAncient?.(false);respond('Modo Neural ativado.')}else if(/neurônio|aproximar|zoom/.test(lo)){window.NEX_VIEW?.zoomNeuron?.();respond('Explorando a rede neural.')}else if(/cérebro|afastar|voltar/.test(lo)){window.NEX_VIEW?.resetZoom?.();respond('Voltando ao cérebro completo.')}else if(/parar de girar/.test(lo)){window.NEX_VIEW?.pauseSpin?.();respond('Rotação pausada.')}else{respond('Recebi seu pedido. A conversa generativa livre ainda precisa ser conectada a um modelo de IA. Os comandos visuais já funcionam.')}$('entry').value=''}
+$('send').onclick=send;$('entry').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}};
+setTimeout(()=>{if($('loader').style.display!=='none' && !$('loader').textContent.includes('NÃO CARREGADO')){window.NEX_UI.fail('O visualizador 3D ainda não inicializou. Confira sua conexão com a internet e o carregamento da biblioteca Three.js.');}},18000);
+window.NEX_TALK=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){window.NEX_UI.toast('O reconhecimento de voz não está disponível neste navegador. Use o ícone de escrita.');return}try{const r=new SR();r.lang='pt-BR';r.interimResults=false;r.onstart=()=>window.NEX_UI.state('OUVINDO...', 'Fale naturalmente');r.onresult=e=>{const q=e.results[0][0].transcript;$('entry').value=q;send();window.NEX_UI.toast('Ouvi: '+q);};r.onerror=e=>window.NEX_UI.toast('Microfone: '+e.error);r.onend=()=>window.NEX_UI.state('NÚCLEO NEURAL','Arraste para girar · Pinça para explorar · Toque para falar');r.start()}catch(e){window.NEX_UI.toast('Não consegui iniciar o microfone: '+e.message)}};
+})();
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+const ui=window.NEX_UI,dom=document.getElementById('render');
+let renderer,scene,camera,controls;
+try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.8));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.4;dom.appendChild(renderer.domElement);}catch(e){ui.fail('Seu navegador não ativou a renderização WebGL. Teste no Chrome com aceleração gráfica.');throw e}
+scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,.05,100);camera.position.set(0,.2,(innerWidth<650?8.4:5.6));
+const rig=new THREE.Group();scene.add(rig);const atmosphere=new THREE.Group();scene.add(atmosphere);const neuronScene=new THREE.Group();neuronScene.visible=false;scene.add(neuronScene);
+controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.055;controls.autoRotate=true;controls.autoRotateSpeed=.38;controls.minDistance=2.1;controls.maxDistance=14;controls.enablePan=false;controls.target.set(0,0,0);
+const key=new THREE.PointLight(0x289eff,60,13);key.position.set(-3,3,3);scene.add(key);const rim=new THREE.PointLight(0xeeb97d,45,12);rim.position.set(3,-1,-3);scene.add(rim);scene.add(new THREE.AmbientLight(0x37699a,1.3));
+const sparkleTexture=(()=>{let c=document.createElement('canvas');c.width=c.height=64;let x=c.getContext('2d');const g=x.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(.22,'rgba(127,209,255,.9)');g.addColorStop(1,'rgba(48,121,252,0)');x.fillStyle=g;x.fillRect(0,0,64,64);return new THREE.CanvasTexture(c)})();
+const particleHolder=new THREE.Group();rig.add(particleHolder);
+let activeModel=null,ancient=false,last=performance.now(),fade=1,mode='brain',spinAllowed=true;
+const glyphRing=new THREE.Group();scene.add(glyphRing);
+for(let i=0;i<3;i++){const ring=new THREE.Mesh(new THREE.TorusGeometry(1.85+i*.14,.005,6,160),new THREE.MeshBasicMaterial({color:i%2?0xe9b97f:0x4aa7eb,transparent:true,opacity:i===1?.26:.38}));ring.rotation.x=Math.PI/2.23;ring.position.y=-1.78-i*.012;glyphRing.add(ring)}
+function setAncient(on){ancient=!!on;key.color.setHex(on?0xc28f54:0x289eff);rim.color.setHex(on?0xd29f57:0xeeb97d);ui.state(on?'MEMÓRIA ANCESTRAL':'NÚCLEO NEURAL');for(const r of glyphRing.children)r.material.color.setHex(on?0xc18a4f:0x5c9ed4);for(const p of particleHolder.children){if(p.material?.color)p.material.color.setHex(on?0xe7b977:0x3bafff)}if(activeModel)activeModel.traverse(o=>{if(o.isMesh&&o.material?.userData?.nex){o.material.emissive.setHex(on?0x55321c:0x073454)}})}
+window.NEX_VIEW={setAncient,zoomNeuron(){enterNetwork()},resetZoom(){mode='brain';neuronScene.visible=false;rig.visible=true;controls.minDistance=2.1;camera.position.set(0,.2,(innerWidth<650?8.4:5.6));controls.target.set(0,0,0);ui.state(ancient?'MEMÓRIA ANCESTRAL':'NÚCLEO NEURAL')},pauseSpin(){spinAllowed=false;controls.autoRotate=false}};
+// Modelo anatômico público CC0. Preferimos cópia local para evitar problemas de CORS.
+const MODEL_URLS=['./assets/brain.glb','https://files.innerscene.com/library/brain-10d8f88f/d62e30032a36fa53fa70/brain.glb'];
+let loader=new GLTFLoader(),successful=false;
+function tryLoad(i){if(i>=MODEL_URLS.length){ui.fail('Não consegui buscar o modelo GLB. Consulte o LEIA-ME: é preciso hospedar assets/brain.glb junto com a página.');return}loader.load(MODEL_URLS[i],(g)=>{successful=true;const b=new THREE.Box3().setFromObject(g.scene);let c=b.getCenter(new THREE.Vector3()),size=b.getSize(new THREE.Vector3());const scale=2.8/Math.max(size.x,size.y,size.z);g.scene.scale.multiplyScalar(scale);g.scene.position.copy(c.multiplyScalar(-scale));rig.add(g.scene);activeModel=g.scene;
+const baseMat=new THREE.MeshPhysicalMaterial({color:0x0a3260,metalness:.43,roughness:.38,clearcoat:.6,clearcoatRoughness:.18,emissive:0x073454,emissiveIntensity:.46,side:THREE.DoubleSide});baseMat.userData.nex=true;
+let mcount=0;g.scene.traverse(o=>{if(o.isMesh){mcount++;o.material=baseMat.clone();o.material.userData.nex=true;o.castShadow=false;o.frustumCulled=false}});
+makeSurfaceLights(g.scene);ui.ready();ui.toast('Cérebro anatômico 3D carregado. Arraste para girar ou aproxime para explorar.');},undefined,()=>tryLoad(i+1))}
+tryLoad(0);
+function makeSurfaceLights(root){root.updateWorldMatrix(true,true);const vs=[];root.traverse(o=>{if(o.isMesh&&o.geometry?.attributes?.position){const a=o.geometry.attributes.position;let k=Math.max(1,Math.ceil(a.count/700));for(let j=0;j<a.count;j+=k){const v=new THREE.Vector3().fromBufferAttribute(a,j);o.localToWorld(v);vs.push(v)}}});if(!vs.length)return;
+const dots=new Float32Array(Math.min(vs.length,1800)*3);const picks=[];for(let i=0;i<dots.length/3;i++){const v=vs[Math.floor(Math.random()*vs.length)];dots[i*3]=v.x;dots[i*3+1]=v.y;dots[i*3+2]=v.z;picks.push(v)}const geom=new THREE.BufferGeometry();geom.setAttribute('position',new THREE.BufferAttribute(dots,3));const p=new THREE.Points(geom,new THREE.PointsMaterial({size:.04,map:sparkleTexture,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,color:0x66bfff,opacity:.74}));particleHolder.add(p);
+const lines=[];for(let i=0;i<300;i++){const a=picks[Math.floor(Math.random()*picks.length)],b=picks[Math.floor(Math.random()*picks.length)];if(!a||!b||a.distanceTo(b)>.31)continue;lines.push(a.x,a.y,a.z,b.x,b.y,b.z)}if(lines.length){const gg=new THREE.BufferGeometry();gg.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));const ls=new THREE.LineSegments(gg,new THREE.LineBasicMaterial({color:0x38acff,transparent:true,opacity:.34,blending:THREE.AdditiveBlending,depthWrite:false}));particleHolder.add(ls)}
+}
+// Rede 3D de neurônios independente, com dendritos e impulsos em órbita.
+const neuronSomas=[],curves=[],moving=[];
+const matCell=new THREE.MeshPhysicalMaterial({color:0x4e9fd9,emissive:0x308de1,emissiveIntensity:1.3,roughness:.22,metalness:.18,transparent:true,opacity:.9});
+function makeNeuron(parent,at,radius,branches=9){const body=new THREE.Mesh(new THREE.IcosahedronGeometry(radius,3),matCell);body.position.copy(at);parent.add(body);neuronSomas.push(body);
+const core=new THREE.Sprite(new THREE.SpriteMaterial({map:sparkleTexture,color:0xd6edff,blending:THREE.AdditiveBlending,depthWrite:false}));core.position.copy(at);core.scale.set(radius*3,radius*3,1);parent.add(core);
+for(let i=0;i<branches;i++){const theta=i*2.399+Math.random()*.14,z=Math.cos(i*1.3)*.85,vec=new THREE.Vector3(Math.cos(theta),Math.sin(theta),z).normalize();const side=new THREE.Vector3(-vec.y,vec.x,vec.z*.2).normalize(),len=radius*(3+Math.random()*3);
+const pts=[at.clone().addScaledVector(vec,radius*.7),at.clone().addScaledVector(vec,len*.45).addScaledVector(side,len*.19),at.clone().addScaledVector(vec,len*.77).addScaledVector(side,-len*.10),at.clone().addScaledVector(vec,len)];const curve=new THREE.CatmullRomCurve3(pts);const tube=new THREE.Mesh(new THREE.TubeGeometry(curve,24,radius*.07,5,false),matCell);parent.add(tube);curves.push(curve);
+const bead=new THREE.Sprite(new THREE.SpriteMaterial({map:sparkleTexture,color:i%3===0?0xf1ba77:0x65caff,blending:THREE.AdditiveBlending,depthWrite:false}));bead.scale.set(radius*.9,radius*.9,1);parent.add(bead);moving.push({bead,curve,phase:Math.random()})}}
+let networkBuilt=false;
+function buildNetwork(){if(networkBuilt)return;networkBuilt=true;for(let i=0;i<11;i++){const phi=i*2.4;const r=i===0?0:1.4+.4*Math.sin(i);const p=new THREE.Vector3(Math.sin(phi)*r,Math.cos(i*.84)*1.03,Math.cos(phi)*r*.65);makeNeuron(neuronScene,p,i===0?.2:.075,i===0?12:7)}}
+function enterNetwork(){if(!successful){ui.toast('O modelo anatômico ainda não foi carregado.');return}buildNetwork();mode='network';rig.visible=false;neuronScene.visible=true;controls.autoRotate=true;controls.minDistance=.85;controls.maxDistance=8;controls.target.set(0,0,0);camera.position.set(0,.2,4);ui.state('REDE DE NEURÔNIOS','Aproxime novamente para observar uma célula.');}
+function enterCell(){mode='cell';controls.target.set(0,0,0);camera.position.set(0,.1,1.6);controls.minDistance=.85;controls.maxDistance=8;ui.state('NEURÔNIO · DETALHE 3D','Arraste para girar · Afaste para voltar');}
+function onZoom(){if(!successful)return;const d=camera.position.distanceTo(controls.target);if(mode==='brain'&&d<2.6){enterNetwork()}else if(mode==='network'&&d<2.1){enterCell()}else if(mode==='cell'&&d>5.8){enterNetwork()}else if(mode==='network'&&d>6.7){window.NEX_VIEW.resetZoom();}}
+controls.addEventListener('end',()=>{setTimeout(onZoom,100)});dom.addEventListener('wheel',()=>setTimeout(onZoom,150),{passive:true});
+let pointDown={};renderer.domElement.addEventListener('pointerdown',e=>{pointDown={x:e.clientX,y:e.clientY,t:Date.now()}});renderer.domElement.addEventListener('pointerup',e=>{const dist=Math.hypot(e.clientX-pointDown.x,e.clientY-pointDown.y),dt=Date.now()-pointDown.t;if(dist<9&&dt<350&&!document.getElementById('composer').classList.contains('open'))window.NEX_TALK?.()});
+let lastTap=0;renderer.domElement.addEventListener('touchend',e=>{const now=Date.now();if(now-lastTap<330){e.preventDefault();if(mode==='brain')enterNetwork();else if(mode==='network')enterCell();else window.NEX_VIEW.resetZoom();}lastTap=now},{passive:false});
+function animate(t){requestAnimationFrame(animate);let dt=Math.min((t-last)/1000,.05);last=t;if(!document.hidden){controls.autoRotate=spinAllowed;controls.update();const now=t*.001;glyphRing.rotation.y=now*.13;for(let i=0;i<moving.length;i++){const item=moving[i];item.bead.position.copy(item.curve.getPoint((item.phase+now*.13+i*.017)%1))}for(let i=0;i<neuronSomas.length;i++){const s=neuronSomas[i];s.scale.setScalar(1+.06*Math.sin(now*1.7+i*.6))}for(const p of particleHolder.children)if(p.material?.opacity)p.material.opacity=.44+.24*Math.sin(now*1.4)}renderer.render(scene,camera)}requestAnimationFrame(animate);
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)})
+</script>
+</body></html>
